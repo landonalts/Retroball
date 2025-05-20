@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pixel Baseball Demo</title>
+  <style>
+    body {
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-family: monospace;
+      user-select: none;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+      width: 600px;
+      height: 400px;
+      background: #87CEEB;
+      border: 3px solid #333;
+      touch-action: manipulation;
+    }
+
+    #controls {
+      margin: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #333;
+      color: white;
+      cursor: pointer;
+    }
+
+    #outsDisplay {
+      color: white;
+      font-size: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button id="readyBtn">READY</button>
+    <div id="outsDisplay">Outs: 0</div>
+  </div>
+  <canvas id="gameCanvas" width="150" height="100"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const ball = {
+      x: 75,
+      y: 30,
+      z: 0,
+      speed: 0.5,
+      active: false,
+      hit: false
+    };
+
+    const batter = { swinging: false, frame: 0 };
+    const pitcher = { pitching: false, frame: 0 };
+    let outs = 0;
+
+    function drawField() {
+      ctx.fillStyle = "#228B22";
+      ctx.fillRect(0, 60, canvas.width, 40);
+    }
+
+    function drawBall() {
+      if (!ball.active) return;
+      const scale = 1 + ball.z * 0.05;
+      const radius = 2 * scale;
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = "white";
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    function drawBatter() {
+      ctx.fillStyle = "#444";
+      ctx.fillRect(110, 70, 5, -10); // legs
+      ctx.fillStyle = "#FFD700";
+
+      if (batter.swinging && batter.frame < 5) {
+        ctx.fillRect(105, 60 - batter.frame, 10, 2); // swing
+        batter.frame++;
+      } else {
+        ctx.fillRect(112, 55, 3, 8); // bat at rest
+      }
+    }
+
+    function drawPitcher() {
+      ctx.fillStyle = "#888";
+      ctx.fillRect(35, 60, 5, -10); // legs
+      ctx.fillStyle = "#87CEEB";
+
+      if (pitcher.pitching && pitcher.frame < 5) {
+        ctx.fillRect(40 - pitcher.frame, 50, 5, 5); // pitching arm
+        pitcher.frame++;
+      } else {
+        ctx.fillRect(30, 50, 5, 5); // arm at rest
+      }
+    }
+
+    function updateBall() {
+      if (ball.active) {
+        ball.z += ball.speed;
+        ball.y += ball.speed * 0.8;
+        if (ball.z > 20 && !ball.hit) {
+          ball.active = false;
+          outs++;
+          updateOutsDisplay();
+        }
+        if (ball.hit) {
+          ball.x += 2;
+          ball.y -= 1;
+        }
+      }
+    }
+
+    function updateOutsDisplay() {
+      document.getElementById("outsDisplay").textContent = "Outs: " + outs;
+      if (outs >= 3) {
+        alert("3 Outs! Resetting...");
+        outs = 0;
+        updateOutsDisplay();
+      }
+    }
+
+    function swingBat() {
+      if (!ball.active) return;
+      batter.swinging = true;
+      batter.frame = 0;
+
+      if (ball.z >= 16 && ball.z <= 20) {
+        ball.hit = true;
+        ball.speed = 0;
+      } else {
+        outs++;
+        updateOutsDisplay();
+      }
+    }
+
+    function pitchBall() {
+      if (ball.active) return;
+      ball.active = true;
+      ball.z = 0;
+      ball.y = 30;
+      ball.hit = false;
+
+      pitcher.pitching = true;
+      pitcher.frame = 0;
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawField();
+      drawPitcher();
+      drawBatter();
+      drawBall();
+      updateBall();
+
+      if (batter.swinging && batter.frame >= 5) batter.swinging = false;
+      if (pitcher.pitching && pitcher.frame >= 5) pitcher.pitching = false;
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Controls
+    document.getElementById("readyBtn").addEventListener("click", pitchBall);
+    canvas.addEventListener("click", swingBat); // mobile tap
+
+    gameLoop();
+  </script>
+</body>
+</html>
