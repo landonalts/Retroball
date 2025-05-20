@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pixel Baseball Game</title>
+<style>
+  body {
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: monospace;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+  canvas {
+    width: 600px;
+    height: 400px;
+    background: #87ceeb;
+    border: 3px solid #333;
+    image-rendering: pixelated;
+    touch-action: manipulation;
+    margin-top: 20px;
+  }
+  #controls {
+    margin: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    font-size: 16px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    background: #333;
+    color: white;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.3s;
+  }
+  button:hover {
+    background: #555;
+  }
+  #info {
+    color: white;
+    font-size: 18px;
+    margin-top: 5px;
+  }
+</style>
+</head>
+<body>
+<div id="controls">
+  <button onclick="pitchBall('fastball')">Fastball</button>
+  <button onclick="pitchBall('curveball')">Curveball</button>
+  <button onclick="pitchBall('changeup')">Changeup</button>
+  <button onclick="swingBat()">Swing</button>
+</div>
+<canvas id="gameCanvas" width="300" height="200"></canvas>
+<div id="info">Balls: 0 | Strikes: 0 | Outs: 0</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const strikeZone = { x: 125, y: 130, width: 50, height: 30 };
+
+const ball = {
+  x: 150,
+  y: 180,
+  z: 20,
+  speed: 0.5,
+  vx: 0,
+  vy: 0,
+  active: false,
+  hit: false,
+  pitchType: "fastball"
+};
+
+const batter = { swinging: false, frame: 0, maxFrames: 8 };
+const pitcher = { pitching: false, frame: 0, maxFrames: 5 };
+
+let balls = 0;
+let strikes = 0;
+let outs = 0;
+
+function updateInfo() {
+  document.getElementById("info").textContent =
+    `Balls: ${balls} | Strikes: ${strikes} | Outs: ${outs}`;
+}
+
+function drawField() {
+  ctx.fillStyle = "#228B22";
+  ctx.fillRect(0, 150, canvas.width, 50);
+
+  ctx.fillStyle = "#FFF";
+  ctx.fillRect(145, 180, 10, 5);
+
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(strikeZone.x, strikeZone.y, strikeZone.width, strikeZone.height);
+}
+
+function drawBall() {
+  if (!ball.active) return;
+  const radius = 2;
+  const screenY = ball.y - ball.z * 4;
+  ctx.beginPath();
+  ctx.arc(ball.x, screenY, radius, 0, Math.PI * 2);
+  ctx.fillStyle = "white";
+  ctx.fill();
+  ctx.strokeStyle = "#ccc";
+  ctx.stroke();
+}
+
+function drawBatter() {
+  const x = 220, y = 140;
+
+  ctx.fillStyle = "#FFDAB9";
+  ctx.fillRect(x, y - 10, 6, 6);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x + 1, y - 9, 1, 1);
+  ctx.fillRect(x + 4, y - 9, 1, 1);
+
+  ctx.fillStyle = "#222";
+  ctx.fillRect(x + 1, y - 4, 4, 10);
+
+  ctx.fillStyle = "#FFDAB9";
+  ctx.fillRect(x - 2, y - 3, 2, 5);
+  ctx.fillRect(x + 6, y - 3, 2, 5);
+
+  ctx.fillStyle = "#555";
+  ctx.fillRect(x + 1, y + 6, 1, 5);
+  ctx.fillRect(x + 4, y + 6, 1, 5);
+
+  ctx.fillStyle = "#B5651D";
+  if (batter.swinging) {
+    const f = batter.frame;
+    const swingPositions = [
+      { dx: 6, dy: -10, w: 2, h: 12, angle: 0 },
+      { dx: 8, dy: -9, w: 4, h: 4, angle: -15 },
+      { dx: 10, dy: -7, w: 8, h: 2, angle: -30 },
+      { dx: 12, dy: -6, w: 10, h: 2, angle: -45 },
+      { dx: 14, dy: -5, w: 10, h: 2, angle: -60 },
+      { dx: 15, dy: -4, w: 8, h: 2, angle: -75 },
+      { dx: 16, dy: -3, w: 6, h: 2, angle: -85 },
+      { dx: 18, dy: -2, w: 4, h: 2, angle: -90 },
+    ];
+
+    const pos = swingPositions[Math.min(f, swingPositions.length - 1)];
+
+    ctx.save();
+    ctx.translate(x + pos.dx, y + pos.dy);
+    ctx.rotate((pos.angle * Math.PI) / 180);
+    ctx.fillRect(0, 0, pos.w, pos.h);
+    ctx.restore();
+
+    batter.frame++;
+    if (batter.frame >= batter.maxFrames) {
+      batter.swinging = false;
+      batter.frame = 0;
+    }
+  } else {
+    ctx.fillRect(x + 6, y - 10, 2, 12);
+  }
+}
+
+function drawPitcher() {
+  const x = 70, y = 80;
+
+  ctx.fillStyle = "#FFDAB9";
+  ctx.fillRect(x, y - 10, 6, 6);
+
+  ctx.fillStyle = "#000";
+  ctx.fillRect(x + 1, y - 9, 1, 1);
+  ctx.fillRect(x + 4, y - 9, 1, 1);
+
+  ctx.fillStyle = "#0066cc";
+  ctx.fillRect(x + 1, y - 4, 4, 10);
+
+  ctx.fillStyle = "#FFDAB9";
+  ctx.fillRect(x - 2, y - 3, 2, 5);
+  ctx.fillRect(x + 6, y - 3, 2, 5);
+
+  ctx.fillStyle = "#444";
+  ctx.fillRect(x + 1, y + 6, 1, 5);
+  ctx.fillRect(x + 4, y + 6, 1, 5);
+
+  if (pitcher.pitching && pitcher.frame < pitcher.maxFrames) {
+    ctx.fillStyle = "#A52A2A";
+    ctx.fillRect(x + 6 + pitcher.frame, y - 6, 2, 2);
+    pitcher.frame++;
+  } else {
+    ctx.fillStyle = "#A52A2A";
+    ctx.fillRect(x + 6, y - 6, 2, 2);
+  }
+}
+
+function updateBall() {
+  if (!ball.active) return;
+
+  if (!ball.hit) {
+    ball.z -= ball.speed;
+    ball.x += ball.vx;
+    ball.y = 180;
+    if (ball.z <= 0) {
+      ball.active = false;
+      evaluatePitch();
+    }
+  } else {
+    ball.x += ball.vx * 5;
+    ball.y -= ball.vy;
+    ball.vy -= 0.15;
+    if (ball.y > 200) {
+      resetAtBat();
+    }
+  }
+}
+
+function evaluatePitch() {
+  const isInZone =
+    ball.x >= strikeZone.x &&
+    ball.x <= strikeZone.x + strikeZone.width &&
+    180 >= strikeZone.y &&
+    180 <= strikeZone.y + strikeZone.height;
+
+  if (!ball.hit) {
+    if (isInZone) {
+      strikes++;
+      if (strikes >= 3) {
+        outs++;
+        strikes = 0;
+        balls = 0;
+        alert("Strikeout!");
+      }
+    } else {
+      balls++;
+      if (balls >= 4) {
+        alert("Walk!");
+        balls = 0;
+        strikes = 0;
+      }
+    }
+  }
+  if (outs >= 3) {
+    alert("3 Outs! Inning over.");
+    outs = 0;
+    balls = 0;
+    strikes = 0;
+  }
+  updateInfo();
+}
+
+function resetAtBat() {
+  ball.active = false;
+  ball.hit = false;
+  batter.swinging = false;
+  batter.frame = 0;
+  pitcher.pitching = false;
+  pitcher.frame = 0;
+  balls = 0;
+  strikes = 0;
+  updateInfo();
+}
+
+function swingBat() {
+  if (!ball.active) return;
+
+  batter.swinging = true;
+  batter.frame = 0;
+
+  const isInZone =
+    ball.x >= strikeZone.x &&
+    ball.x <= strikeZone.x + strikeZone.width &&
+    ball.z <= 3 && ball.z >= 0;
+
+  if (isInZone) {
+    ball.hit = true;
+    ball.speed = 0;
+    ball.vx = 2 + Math.random() * 2;
+    ball.vy = 5 + Math.random() * 2;
+  } else {
+    strikes++;
+    if (strikes >= 3) {
+      outs++;
+      strikes = 0;
+      balls = 0;
+      alert("Strikeout!");
+    }
+  }
+  updateInfo();
+}
+
+function pitchBall(type = "fastball") {
+  if (ball.active) return;
+
+  ball.pitchType = type;
+  ball.x = 150;
+  ball.z = 20;
+  ball.y = 180;
+  ball.hit = false;
+  batter.swinging = false;
+
+  switch (type) {
+    case "fastball":
+      ball.speed = 0.7;
+      ball.vx = (Math.random() - 0.5) * 0.2;
+      break;
+    case "curveball":
+      ball.speed = 0.5;
+      ball.vx = (Math.random() - 0.5) * 0.4;
+      break;
+    case "changeup":
+      ball.speed = 0.35;
+      ball.vx = (Math.random() - 0.5) * 0.15;
+      break;
+  }
+  ball.active = true;
+  pitcher.pitching = true;
+  pitcher.frame = 0;
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawField();
+  drawPitcher();
+  drawBatter();
+  drawBall();
+  updateBall();
+  requestAnimationFrame(gameLoop);
+}
+
+updateInfo();
+gameLoop();
+</script>
+</body>
+</html>
