@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Baseball Batting Demo</title>
+  <style>
+    canvas {
+      background: #87CEEB;
+      display: block;
+      margin: 0 auto;
+      border: 2px solid #333;
+    }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let ball = { x: 100, y: 200, vx: 5, vy: 0, radius: 5, hit: false };
+let bat = { x: 500, y: 200, swing: false };
+
+function drawField() {
+  ctx.fillStyle = '#228B22';
+  ctx.fillRect(0, 300, canvas.width, 100); // grass
+  ctx.fillStyle = '#FFF';
+  ctx.fillRect(500, 190, 10, 20); // bat
+}
+
+function drawBall() {
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fillStyle = 'white';
+  ctx.fill();
+  ctx.stroke();
+}
+
+function updateBall() {
+  if (!ball.hit) {
+    ball.x += ball.vx;
+  } else {
+    ball.x += 7;
+    ball.y -= 3;
+  }
+}
+
+function detectHit() {
+  if (!ball.hit && ball.x > bat.x - 10 && ball.x < bat.x + 20) {
+    ball.hit = true;
+    console.log("Hit!");
+  }
+}
+
+function gameLoop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawField();
+  drawBall();
+  updateBall();
+  if (bat.swing) {
+    detectHit();
+  }
+  requestAnimationFrame(gameLoop);
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    bat.swing = true;
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'Space') {
+    bat.swing = false;
+  }
+});
+
+gameLoop();
+</script>
+</body>
+</html>
